@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>口语积累本 · Vocabulary</title>
+<style>
+  :root {
+    --bg: #f6f4ef;
+    --card: #ffffff;
+    --ink: #2b2a27;
+    --sub: #6b675e;
+    --accent: #3563e9;
+    --border: #e4e0d5;
+    --phon: #8a6d3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #191816; --card: #232220; --ink: #eae7df; --sub: #a39e92;
+      --accent: #7aa2f7; --border: #37352f; --phon: #c9a86a;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    padding: 24px 16px 60px;
+    max-width: 860px; margin: 0 auto;
+  }
+  header { text-align: center; margin-bottom: 24px; }
+  header h1 { font-size: 26px; letter-spacing: 1px; }
+  header p { color: var(--sub); font-size: 13px; margin-top: 6px; }
+  ul#word-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  li.entry {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  }
+  .entry-main {
+    display: flex; align-items: center; gap: 12px;
+    padding: 13px 16px;
+  }
+  .num { color: var(--sub); font-size: 12px; min-width: 26px; font-variant-numeric: tabular-nums; }
+  .word { font-size: 17px; font-weight: 600; flex: 1; word-break: break-word; }
+  button.toggle {
+    border: 1px solid var(--border); background: transparent; color: var(--accent);
+    font-size: 13px; padding: 5px 14px; border-radius: 999px; cursor: pointer;
+    flex-shrink: 0; transition: background .15s;
+  }
+  button.toggle:hover { background: rgba(53,99,233,.08); }
+  .detail {
+    display: none; border-top: 1px dashed var(--border);
+    padding: 12px 16px 14px 54px; font-size: 15px; line-height: 1.75;
+  }
+  li.entry.open .detail { display: block; }
+  li.entry.open button.toggle { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .detail .phon { color: var(--phon); font-size: 14px; }
+  .detail .mean { margin-top: 2px; }
+  .detail .ex { margin-top: 6px; color: var(--sub); font-style: italic; }
+  @media (max-width: 560px) {
+    .detail { padding-left: 16px; }
+    .word { font-size: 16px; }
+  }
+  /* ── 抽查模式 ── */
+  .mode-bar { display: flex; justify-content: center; gap: 8px; margin-top: 14px; }
+  .mode-btn {
+    border: 1px solid var(--border); background: var(--card); color: var(--sub);
+    font-size: 14px; padding: 6px 22px; border-radius: 999px; cursor: pointer;
+  }
+  .mode-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #quiz-view { max-width: 520px; margin: 0 auto; }
+  .quiz-progress { text-align: center; color: var(--sub); font-size: 14px; margin-bottom: 14px; }
+  .quiz-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 34px 24px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.05);
+  }
+  .quiz-word { font-size: 30px; font-weight: 700; word-break: break-word; }
+  .quiz-detail {
+    margin-top: 16px; font-size: 16px; line-height: 1.8; text-align: left;
+    border-top: 1px dashed var(--border); padding-top: 14px;
+  }
+  .quiz-detail .phon { color: var(--phon); font-size: 15px; }
+  .quiz-detail .ex { color: var(--sub); font-style: italic; }
+  .quiz-btns { display: flex; justify-content: center; gap: 14px; margin-top: 26px; }
+  .q-btn {
+    font-size: 16px; padding: 10px 30px; border-radius: 12px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--card); color: var(--ink);
+  }
+  .q-btn.know { border-color: #2e9e5b; color: #2e9e5b; }
+  .q-btn.know:hover { background: rgba(46,158,91,.12); }
+  .q-btn.unknow { border-color: #d05a5a; color: #d05a5a; }
+  .q-btn.unknow:hover { background: rgba(208,90,90,.12); }
+  .q-btn.next { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .quiz-result { text-align: center; }
+  .quiz-result h2 { margin-bottom: 10px; }
+  .quiz-result p { color: var(--sub); margin-bottom: 16px; }
+  #q-wrong-list { list-style: none; text-align: left; display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+  #q-wrong-list li { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+  #q-wrong-list .w { font-weight: 600; }
+  #q-wrong-list .m { color: var(--sub); margin-top: 2px; }
+  /* ── 错题本模式 ── */
+  .nb-actions { text-align: center; margin-bottom: 14px; }
+  .nb-empty { text-align: center; color: var(--sub); padding: 40px 0; font-size: 15px; }
+  .nb-count {
+    background: rgba(208,90,90,.12); color: #d05a5a; font-size: 12px;
+    padding: 2px 10px; border-radius: 999px; flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>口语积累本</h1>
+  <p id="count"></p>
+  <div class="mode-bar">
+    <button class="mode-btn active" data-mode="list">列表</button>
+    <button class="mode-btn" data-mode="quiz">抽查</button>
+    <button class="mode-btn" data-mode="notebook">错题本</button>
+  </div>
+</header>
+<ul id="word-list"></ul>
+<div id="quiz-view" hidden></div>
+<div id="notebook-view" hidden></div>
+
+<!-- VOCAB-DATA-START -->
+<script id="vocab-data" type="application/json">[{"w": "settle down", "p": "/ˈsetl daʊn/", "m": "短语：定居；安定下来；平静下来", "e": "He wants to settle down in the countryside. 他想在乡下定居。"}, {"w": "get ready for", "p": "/ɡet ˈredi fɔː(r)/", "m": "短语：为…… 做好准备", "e": "We get ready for the coming exam. 我们为即将到来的考试做准备。"}, {"w": "snapshots", "p": "/ˈsnæpʃɒts/", "m": "n.(复数) 快照；简介，片段", "e": "take snapshots 拍快照"}, {"w": "as follows", "p": "/æz ˈfɒləʊz/", "m": "短语：如下", "e": "The results are as follows. 结果如下。"}, {"w": "aloof", "p": "/əˈluːf/", "m": "adj. 冷漠的；疏远的", "e": "keep aloof from others 与他人保持疏远"}, {"w": "have something at heart", "p": "/hæv ˈsʌmθɪŋ æt hɑːt/", "m": "短语：把某事放在心上；关心某事", "e": "She has our interests at heart. 她把我们的利益放在心上。"}, {"w": "take the time to do", "p": "/teɪk ðə taɪm tu duː/", "m": "短语：花时间去做", "e": "Take the time to think before you act. 行动前花时间思考。"}, {"w": "address somebody's concerns", "p": "/əˈdres ˈsʌmbədis kənˈsɜːnz/", "m": "短语：解决 / 回应某人的担忧", "e": "The manager addressed customers' concerns. 经理回应了顾客的担忧。"}, {"w": "clear the air", "p": "/klɪə ði eə(r)/", "m": "习语：消除隔阂、化解误会、消除不愉快气氛", "e": "We talked to clear the air between us. 我们交谈以化解彼此的误会。"}, {"w": "prompt sb to do sth", "p": "/prɒmpt ˈsʌmbədi tu duː ˈsʌmθɪŋ/", "m": "短语：促使某人做某事", "e": "The news prompted him to take action. 这条消息促使他采取行动。"}, {"w": "be indulgent in", "p": "/bi ɪnˈdʌldʒənt ɪn/", "m": "短语：沉溺于；纵容", "e": "Don't be indulgent in bad habits. 不要沉溺于坏习惯。"}, {"w": "be critical of", "p": "/bi ˈkrɪtɪkl əv/", "m": "短语：对…… 持批评态度；挑剔；不满", "e": "Don't be critical of others easily. 不要轻易挑剔别人。"}, {"w": "be strict with", "p": "/bi strɪkt wɪð/", "m": "短语：对…… 严格要求；严厉对待", "e": "Parents should be strict with their children properly. 父母应当适度严格要求孩子。"}, {"w": "cut sb some slack", "p": "/kʌt ˈsʌmbədi sʌm slæk/", "m": "习语：对某人宽容些、放某人一马、不要过分苛责某人", "e": "Cut him some slack; he is just a beginner. 对他宽容点，他只是个新手。"}, {"w": "that is what something is all about", "p": "/ðæt ɪz wɒt ˈsʌmθɪŋ ɪz ɔːl əˈbaʊt/", "m": "句型：这就是某事的意义所在", "e": "That is what friendship is all about. 这就是友谊的真谛。"}, {"w": "plus", "p": "/plʌs/", "m": "prep./adj. 此外；加上；正的", "e": "The house is big, plus it has a garden. 房子很大，此外还有一座花园。"}, {"w": "spreadsheet", "p": "/ˈspredʃiːt/", "m": "n. 电子表格；空白表格程序", "e": "I use a spreadsheet to track my daily expenses. 我用电子表格来记录日常开销。"}, {"w": "from now until the end of something", "p": "/frəm naʊ ənˈtɪl ði end ɒv ˈsʌmθɪŋ/", "m": "短语：从现在直到某事结束", "e": "From now until the end of the project, we will work together. 从现在直到项目结束，我们将一起工作。"}, {"w": "idiom", "p": "/ˈɪdiəm/", "m": "n. 习语，成语", "e": "\"Cut sb some slack\" is a common English idiom. “对某人宽容些” 是一个常用英语习语。"}, {"w": "kick things off", "p": "/kɪk θɪŋz ɒf/", "m": "习语：开启；启动；拉开序幕", "e": "Let's kick things off with a short speech. 我们以简短发言拉开序幕。"}, {"w": "while I am here", "p": "/waɪl aɪ æm hɪə(r)/", "m": "句型：趁我在这儿；既然我来了", "e": "While I am here, I will finish the task. 趁我在这儿，我会把任务完成。"}, {"w": "even though", "p": "/ˈiːvn ðəʊ/", "m": "连词：虽然，尽管", "e": "Even though it rained, we still went out. 尽管下雨，我们还是出去了。"}, {"w": "be detrimental to somebody", "p": "/bi ˌdetrɪˈmentl tu ˈsʌmbədi/", "m": "短语：对某人有害", "e": "Smoking is detrimental to your health. 吸烟对你身体有害。"}, {"w": "be upsetting to somebody", "p": "/bi ʌpˈsetɪŋ tu ˈsʌmbədi/", "m": "短语：令某人心烦 / 难过", "e": "Your words are upsetting to her. 你的话让她很难过。"}, {"w": "do the best for somebody", "p": "/duː ðə best fɔː(r) ˈsʌmbədi/", "m": "短语：为某人做到最好", "e": "Parents always do the best for their kids. 父母总是为孩子做到最好。"}, {"w": "intention", "p": "/ɪnˈtenʃn/", "m": "n. 意图，目的，打算", "e": "I have no intention of hurting you. 我无意伤害你。"}, {"w": "I am doing great", "p": "/aɪ æm ˈduːɪŋ ɡreɪt/", "m": "口语句型：我过得很好；我状态很不错", "e": "—How are you? —I am doing great.—— 你还好吗？—— 我状态很好。"}, {"w": "selling point", "p": "/ˈselɪŋ pɔɪnt/", "m": "n. 卖点；销售特色", "e": "Low price is its main selling point. 价格低廉是它的主要卖点。"}, {"w": "nonstop schedule", "p": "/ˈnɒnstɒp ˈʃedjuːl/", "m": "短语：排满的日程；连轴转的安排", "e": "He has a nonstop schedule every week. 他每周日程排得满满当当。"}, {"w": "around the clock", "p": "/əˈraʊnd ðə klɒk/", "m": "短语：夜以继日；全天候", "e": "The shop serves customers around the clock. 这家店铺全天候接待顾客。"}, {"w": "twenty four seven", "p": "/ˌtwenti fɔː ˈsevən/", "m": "短语：全天候；昼夜不停", "e": "We offer support twenty four seven. 我们提供 7×24 小时服务。"}, {"w": "a mix of", "p": "/ə mɪks ɒv/", "m": "短语：…… 的混合；兼具", "e": "It is a mix of joy and sorrow. 这是喜忧参半。"}, {"w": "hopefully", "p": "/ˈhəʊpfəli/", "m": "adv. 但愿；有望", "e": "Hopefully, we can finish on time. 但愿我们能按时完成。"}, {"w": "slack", "p": "/slæk/", "m": "adj./n. 松弛；懈怠；空闲", "e": "Don’t be slack in your work. 工作不要懈怠。"}, {"w": "have in store for", "p": "/hæv ɪn stɔː fɔː(r)/", "m": "短语：即将发生；等待着", "e": "Who knows what the future has in store for us. 谁知道未来在等待我们什么。"}, {"w": "stay in shape", "p": "/steɪ ɪn ʃeɪp/", "m": "短语：保持身材；保持健康", "e": "I exercise every day to stay in shape. 我每天锻炼保持身材。"}, {"w": "show up", "p": "/ʃəʊ ʌp/", "m": "短语：出现；露面；到场", "e": "Please show up on time. 请准时到场。"}, {"w": "grumpy", "p": "/ˈɡrʌmpi/", "m": "adj. 脾气暴躁的；爱发脾气的", "e": "He gets grumpy when he is tired. 他累的时候就会脾气暴躁。"}, {"w": "inclined", "p": "/ɪnˈklaɪnd/", "m": "adj. 倾向于；有… 的倾向；倾斜的", "e": "I am inclined to agree with you. 我倾向于同意你的观点。"}, {"w": "to excess", "p": "/tu ɪkˈses/", "m": "短语：过度；过量；过分", "e": "Don’t drink alcohol to excess. 饮酒不要过量。"}, {"w": "for the reason of", "p": "/fɔː ðə ˈriːzn ɒv/", "m": "短语：由于；因为；出于…… 的原因", "e": "He left early for the reason of illness. 他因为生病提前离开了。"}, {"w": "from scratch", "p": "/frəm skrætʃ/", "m": "短语：从零开始；白手起家；从头做起", "e": "She built the company from scratch. 她白手起家创办了这家公司。"}, {"w": "in one's diet", "p": "/ɪn wʌnz ˈdaɪət/", "m": "短语：在某人的日常饮食中；饮食里", "e": "We should include more vegetables in our diet. 我们应该在日常饮食中多摄入蔬菜。"}, {"w": "if I can help it", "p": "/ɪf aɪ kæn help ɪt/", "m": "句式：除非不得已；只要有可能；尽量不做某事", "e": "I won't go out if I can help it. 只要能不去，我就不出门。"}, {"w": "occasionally", "p": "/əˈkeɪʒənəli/", "m": "adv. 偶尔；间或；有时候", "e": "I go to the gym occasionally. 我偶尔去健身房。"}, {"w": "around the corner", "p": "/əˈraʊnd ðə ˈkɔːnə(r)/", "m": "短语：即将来临；在拐角处", "e": "The holiday is around the corner. 假期即将到来。"}, {"w": "refine", "p": "/rɪˈfaɪn/", "m": "v. 精炼；提纯；改进；完善；使文雅", "e": "We need to refine our plan. 我们需要完善我们的计划。"}, {"w": "say that", "p": "/seɪ ðæt/", "m": "动词短语：如果说；也就是说；那样说", "e": "Say that you are right, what should we do next? 如果说你是对的，那我们接下来该怎么做？"}, {"w": "have a word with somebody", "p": "/hæv ə wɜːd wɪð ˈsʌmbədi/", "m": "动词短语：和某人说几句话；与某人私下交谈", "e": "I want to have a word with you after class. 课后我想和你聊几句。"}, {"w": "have words with somebody", "p": "/hæv wɜːdz wɪð ˈsʌmbədi/", "m": "动词短语：和某人争吵；吵架", "e": "He had words with his deskmate yesterday. 他昨天和同桌吵架了。"}, {"w": "give somebody a hard time", "p": "/ɡɪv ˈsʌmbədi ə hɑːd taɪm/", "m": "动词短语：刁难某人；给某人找麻烦；让某人不好过", "e": "Don't give him a hard time. 别刁难他。"}, {"w": "turn up to do something", "p": "/tɜːn ʌp tu duː ˈsʌmθɪŋ/", "m": "动词短语：到场做某事；出现去做某事", "e": "He turned up to attend the meeting on time. 他准时到场参加会议。"}, {"w": "We are in the same boat.", "p": "/wiː ɑː(r) ɪn ðə seɪm bəʊt/", "m": "习语：我们处境相同；同舟共济", "e": "Don't worry, we are in the same boat. 别担心，我们处境一样。"}, {"w": "calm down", "p": "/kɑːm daʊn/", "m": "动词短语：冷静下来；平静下来", "e": "Please calm down and listen to me. 请冷静下来听我说。"}, {"w": "make it up", "p": "/meɪk ɪt ʌp/", "m": "动词短语：和解；和好；弥补；编造", "e": "They argued but later made it up. 他们吵了一架，后来和好了。"}, {"w": "time off", "p": "/taɪm ɒf/", "m": "名词短语：休假；休息时间；请假", "e": "I need some time off next week. 我下周需要请几天假。"}, {"w": "an extension on", "p": "/ən ɪkˈstenʃn ɒn/", "m": "名词短语：（期限）延期", "e": "She applied for an extension on the project. 她申请项目延期。"}, {"w": "initially", "p": "/ɪˈnɪʃəli/", "m": "adv. 副词：最初；起初；开始", "e": "I initially disagreed with his idea. 我起初不认同他的想法。"}, {"w": "despite", "p": "/dɪˈspaɪt/", "m": "prep. 介词：尽管；虽然；不顾", "e": "He went out despite the heavy rain. 尽管下大雨，他还是出去了。"}, {"w": "be misinterpreted", "p": "/bi ˌmɪsɪnˈtɜːprɪtɪd/", "m": "被动动词短语：被误解；被曲解", "e": "Your words might be misinterpreted by others. 你的话有可能被别人曲解。"}, {"w": "grumpy", "p": "/ˈɡrʌmpi/", "m": "adj. 形容词：脾气暴躁的；爱发脾气的", "e": "He is grumpy when he gets tired. 他累的时候就爱发脾气。"}, {"w": "approach somebody", "p": "/əˈprəʊtʃ ˈsʌmbədi/", "m": "动词短语：主动接近某人；找某人沟通；接洽某人", "e": "You can approach him for help. 你可以找他寻求帮助。"}, {"w": "compound", "p": "/ˈkɒmpaʊnd/(n./adj.)；/kəmˈpaʊnd/(v.)", "m": "n. 复合物；化合物；大院 adj. 复合的 v. 使恶化，加重", "e": "Stress can compound your health problems. 压力会加重你的健康问题。"}, {"w": "fester", "p": "/ˈfestə(r)/", "m": "v. 动词：溃烂；（矛盾）恶化、愈演愈烈", "e": "Don’t let the conflict fester. 别让矛盾不断激化。"}, {"w": "bicker", "p": "/ˈbɪkə(r)/", "m": "v. 动词：（小事）争吵，拌嘴，口角", "e": "They often bicker over small things. 他们经常为鸡毛蒜皮的小事拌嘴。"}, {"w": "tumor", "p": "/ˈtjuːmə(r)/", "m": "n. 名词：肿瘤；肿块", "e": "The doctor found a small tumor. 医生发现了一个小肿瘤。"}, {"w": "disagreement", "p": "/ˌdɪsəˈɡriːmənt/", "m": "n. 名词：分歧；意见不合；争论", "e": "We had a minor disagreement about the plan. 我们在这个计划上有一点小分歧。"}, {"w": "on holiday", "p": "/ɒn ˈhɒlədeɪ/", "m": "介词短语：在度假；休假中（英式）", "e": "My parents are on holiday in Spain. 我的父母正在西班牙度假。"}, {"w": "as a whole", "p": "/æz ə həʊl/", "m": "介词短语：作为整体；就整体而言", "e": "The team as a whole performed well. 这支队伍整体表现不错。"}, {"w": "on the whole", "p": "/ɒn ðə həʊl/", "m": "介词短语：总的来说；大体上", "e": "On the whole, I’m satisfied with the result. 总的来说，我对结果还算满意。"}, {"w": "strangle", "p": "/ˈstræŋɡl/", "m": "v. 动词：勒死；扼杀，压制", "e": "Too much control will strangle creativity. 过度管控会扼杀创造力。"}, {"w": "stagger", "p": "/ˈstæɡə(r)/", "m": "v. 蹒跚摇晃；使震惊；错开 adj. 错开的", "e": "He staggered out of the room. 他摇摇晃晃走出房间。"}, {"w": "languish", "p": "/ˈlæŋɡwɪʃ/", "m": "v. 受煎熬；日渐衰弱；被忽视埋没", "e": "Many talents languish for lack of opportunity. 许多人才因缺少机会而被埋没。"}, {"w": "going‑away present", "p": "/ˌɡəʊɪŋ‑əˈweɪ ˈpreznt/", "m": "名词短语：临别 / 送别礼物；多用于同事离职、搬家、长期远行，为离开原有环境准备，仪式感较强；区别：goodbye gift 多用于普通短暂分别，场景更随意", "e": "We bought him a going‑away present before he moved abroad. 在他移居国外前，我们给他买了一份送别礼物。"}, {"w": "goodbye gift", "p": "/ˌɡʊdˈbaɪ ɡɪft/", "m": "名词短语：告别礼物；多用于短期分别、普通道别；对比：going‑away present 侧重离职、搬家、长期离开原有生活圈子，仪式感更强", "e": "I prepared a small goodbye gift for my visiting friend. 我给来访即将离开的朋友准备了一份小小的告别礼物。"}, {"w": "rug", "p": "/rʌɡ/", "m": "n. 名词：小地毯（铺地板，面积较小）；（英）膝上保暖毛毯", "e": "There is a wool rug beside the bed. 床边铺着一块羊毛小地毯。"}, {"w": "bedspread", "p": "/ˈbedspred/", "m": "n. 名词：床罩、装饰床盖，铺于床品最外层，睡觉时通常取下", "e": "The blue bedspread matches the curtains. 这块蓝色床罩和窗帘很搭。"}, {"w": "sounds to me like", "p": "/saʊndz tu mi laɪk/", "m": "口语句式：在我听来好像；我感觉似乎（表达个人主观推测）", "e": "Sounds to me like he is lying. 在我听来，他好像在撒谎。"}, {"w": "not to mention", "p": "/nɒt tu ˈmenʃn/", "m": "介词短语：更不用说；况且，此外（递进补充，后接名词 / 动名词）", "e": "He is good at English, not to mention French. 他英语很好，更不用说法语了。"}, {"w": "precede", "p": "/prɪˈsiːd/", "m": "v. 动词：在… 之前；先于；位于… 前面；易混：proceed 继续进行", "e": "The introduction precedes the main text. 引言在正文之前。"}, {"w": "for ages", "p": "/fɔː(r) ˈeɪdʒɪz/", "m": "副词短语：很久、好长时间（口语，英式常用）", "e": "I’ve waited for ages. 我已经等了好久了。"}, {"w": "run‑of‑the‑mill", "p": "/ˌrʌn əv ðə ˈmɪl/", "m": "形容词短语：普通的，平平常常的，平庸无亮点的（口语，带轻微贬义，作定语）", "e": "It’s just a run‑of‑the‑mill movie. 这只是一部普普通通的电影。"}, {"w": "for the time being", "p": "/fɔː ðə taɪm ˈbiːɪŋ/", "m": "副词短语：暂时，眼下，暂且（现阶段状态，未来可能改变）", "e": "Let’s stay here for the time being. 我们暂且待在这里。"}, {"w": "the thing is", "p": "/ðə θɪŋ ɪz/", "m": "口语句式：问题是；关键在于（引出实情或难处）", "e": "I’d love to go, but the thing is I have no time. 我很想去，但问题是我没时间。"}, {"w": "work for", "p": "/wɜːk fɔː(r)/", "m": "动词短语：为… 工作；对… 有效、适合", "e": "This plan may not work for you. 这个方案可能对你行不通。"}, {"w": "what are you up to?", "p": "/wɒt ɑː(r) juː ʌp tuː/", "m": "口语问句：你在忙什么？你在干什么？；你在搞什么名堂？", "e": "Hey, what are you up to? 嘿，你在忙啥呢？"}, {"w": "opening", "p": "/ˈəʊpənɪŋ/", "m": "n. 空缺（招聘岗位）；机会；开口 adj. 开场的", "e": "There is an opening for a sales manager. 有一个销售经理岗位空缺。"}, {"w": "vacant", "p": "/ˈveɪkənt/", "m": "adj. 空着的；无人占用的；（职位）空缺的；茫然的", "e": "We have a vacant room. 我们有一间空房。"}, {"w": "bank on", "p": "/bæŋk ɒn/", "m": "动词短语：指望，寄希望于，依靠", "e": "Don’t bank on his help. 别指望他会帮忙。"}, {"w": "be getting ahead of oneself", "p": "/biː ˈɡetɪŋ əˈhed ɒv wʌnˈself/", "m": "动词短语：操之过急；想得太远", "e": "Let’s not be getting ahead of ourselves. 咱们别操之过急。"}, {"w": "pumped", "p": "/pʌmpt/", "m": "adj. 口语：兴奋激动的，劲头十足的", "e": "I’m pumped for the game. 我对这场比赛超兴奋。"}, {"w": "inherit", "p": "/ɪnˈherɪt/", "m": "v. 继承；遗传得到；接手承袭", "e": "She inherited the house from her father. 她从父亲那里继承了这套房子。"}, {"w": "crunch time", "p": "/krʌntʃ taɪm/", "m": "名词短语：关键时刻；紧要关头；攻坚期", "e": "It’s crunch time for the final exam. 到期末考试的攻坚紧要关头了。"}, {"w": "given", "p": "/ˈɡɪvn/", "m": "adj. 特定的；prep. 鉴于、考虑到；conj. 考虑到", "e": "Given his age, he did a good job. 考虑到他的年龄，他做得很不错。"}, {"w": "make notes", "p": "/meɪk nəʊts/", "m": "动词短语：记笔记，做记录", "e": "Please make notes of the key points. 请把要点记下来。"}, {"w": "at a later point", "p": "/æt ə ˈleɪtə pɔɪnt/", "m": "介词短语：之后，在稍后某个时候", "e": "We will discuss this issue at a later point. 我们将在稍后讨论这个问题。"}, {"w": "get to the point", "p": "/ɡet tu ðə pɔɪnt/", "m": "动词短语：直入主题，说重点", "e": "Please get to the point. 请直入主题。"}, {"w": "without further ado", "p": "/wɪˈðaʊt ˈfɜːðə(r) əˈduː/", "m": "固定习语：闲话少说，言归正传", "e": "Without further ado, let’s start our meeting. 闲话不多说，我们开始会议。"}, {"w": "condition where", "p": "/kənˈdɪʃn weə(r)/", "m": "名词 + 定语从句：…… 的情况 / 情形", "e": "We face a condition where time is limited. 我们面临时间有限这样一种情况。"}, {"w": "prevent somebody from", "p": "/prɪˈvent ˈsʌmbədi frəm/", "m": "动词短语：阻止某人做某事", "e": "Nothing can prevent us from achieving our goals. 没有什么能够阻止我们实现目标。"}, {"w": "suffer from", "p": "/ˈsʌfə(r) frəm/", "m": "动词短语：遭受；患（病）；受…… 之苦", "e": "Many people suffer from stress. 很多人饱受压力困扰。"}, {"w": "fill out", "p": "/fɪl aʊt/", "m": "动词短语：填写（表格）；（身体）变丰满", "e": "Please fill out this form. 请填写这份表格。"}, {"w": "allot", "p": "/əˈlɒt/", "m": "v. 分配；划拨；拨出（时间、金钱等）", "e": "We allot two hours for the task. 我们给这项任务分配两小时。"}, {"w": "put one's foot in it", "p": "/pʊt wʌnz fʊt ɪn ɪt/", "m": "习语：说错话；闯祸；出言冒犯", "e": "I really put my foot in it when I mentioned her ex‑boyfriend. 我一提她前男友，可真是说错话闯祸了。"}, {"w": "rather than", "p": "/ˈrɑːðə ðæn/", "m": "连词短语：而不是；与其…… 不如", "e": "I choose to walk rather than take a bus. 我选择走路而不是坐公交。"}, {"w": "at times", "p": "/æt taɪmz/", "m": "副词短语：有时；偶尔；间或", "e": "At times, I feel a little lonely. 我偶尔会感到有点孤单。"}, {"w": "at hand", "p": "/æt hænd/", "m": "介词短语：在手边；即将到来", "e": "I always keep a dictionary at hand. / The final exam is at hand."}, {"w": "deal with", "p": "/diːl wɪð/", "m": "动词短语：处理；应对；打交道", "e": "The paperwork needs to be completely dealt with and filed away."}, {"w": "continue with", "p": "/kənˈtɪnjuː wɪð/", "m": "动词短语：继续；接着做某事", "e": "Let’s continue with our discussion after a short break."}, {"w": "hit my deadline", "p": "/hɪt maɪ ˈdedlaɪn/", "m": "动词短语（口语）：赶上截止日期；按期完成", "e": "I worked overtime to hit my deadline."}, {"w": "I'm always behind you.", "p": "/aɪm ˈɔːlweɪz bɪˈhaɪnd juː/", "m": "口语短句：我永远支持你；我一直站在你这边", "e": "Don’t worry, I’m always behind you."}, {"w": "You wish.", "p": "/juː wɪʃ/", "m": "口语短句（反讽调侃）：你想得美；你做梦", "e": "‑I will win the prize.‑You wish."}, {"w": "If you wish.", "p": "/ɪf juː wɪʃ/", "m": "口语短句：如果你愿意的话；随你便；悉听尊便", "e": "You can leave now if you wish."}, {"w": "on the contrary", "p": "/ɒn ðə ˈkɒntrəri/", "m": "介词短语：恰恰相反；正好相反", "e": "It is not boring. On the contrary, it is quite interesting."}, {"w": "corresponding", "p": "/ˌkɒrəˈspɒndɪŋ/", "m": "adj. 形容词：相应的；对应的；相当的", "e": "Please fill in your name in the corresponding column."}, {"w": "It made me think about.", "p": "/ɪt meɪd mi θɪŋk əˈbaʊt/", "m": "不完整句式，后接宾语：这让我思考 / 想起……", "e": "It made me think about my childhood."}, {"w": "superior", "p": "/suːˈpɪəriə(r)/", "m": "adj. 更好的；优越的；地位更高的 n. 上级，上司；搭配 be superior to 优于", "e": "This model is superior to the old one."}, {"w": "inferior", "p": "/ɪnˈfɪəriə(r)/", "m": "adj. 较差的；次等的；地位较低的 n. 下级；搭配 be inferior to 次于，不如", "e": "Don’t feel inferior to others."}, {"w": "metaphorically", "p": "/məˈtæfərɪkli/", "m": "adv. 副词：比喻地；象征性地", "e": "Metaphorically speaking, time is money."}, {"w": "raise awareness", "p": "/reɪz əˈweənəs/", "m": "动词短语：提高意识；唤起认知；提升关注度，常用 raise awareness of sth.", "e": "We should raise awareness of environmental protection."}, {"w": "when it comes to", "p": "/wen ɪt kʌmz tuː/", "m": "连词短语：说到……；就…… 而言，后接名词 / 动名词", "e": "When it comes to sports, I prefer running."}, {"w": "forge ahead", "p": "/fɔːdʒ əˈhed/", "m": "动词短语：奋勇前进；砥砺前行；取得进展", "e": "We will forge ahead despite difficulties."}]</script>
+<!-- VOCAB-DATA-END -->
+
+<script>
+  const vocab = JSON.parse(document.getElementById('vocab-data').textContent);
+  const list = document.getElementById('word-list');
+  const quizView = document.getElementById('quiz-view');
+  const nbView = document.getElementById('notebook-view');
+  const countEl = document.getElementById('count');
+
+  /* ── 错题本存储（localStorage，按 单词+释义 作键） ── */
+  const NB_KEY = 'oral-voc…book';
+  function loadNB() { try { return JSON.parse(localStorage.getItem(NB_KEY)) || {}; } catch (e) { return {}; } }
+  function saveNB(nb) { localStorage.setItem(NB_KEY, JSON.stringify(nb)); }
+  function wordKey(v) { return v.w + '||' + v.m; }
+  function markUnknown(v) {
+    const nb = loadNB(), k = wordKey(v);
+    nb[k] = { w: v.w, p: v.p, m: v.m, e: v.e, n: (nb[k] ? nb[k].n : 0) + 1 };
+    saveNB(nb);
+  }
+
+  /* ── 列表模式（原有功能） ── */
+  vocab.forEach((v, i) => {
+    const li = document.createElement('li');
+    li.className = 'entry';
+    li.innerHTML =
+      '<div class="entry-main">' +
+        '<span class="num">' + (i + 1) + '</span>' +
+        '<span class="word"></span>' +
+        '<button class="toggle" aria-expanded="false">详情</button>' +
+      '</div>' +
+      '<div class="detail">' +
+        '<div class="phon"></div>' +
+        '<div class="mean"></div>' +
+        '<div class="ex"></div>' +
+      '</div>';
+    li.querySelector('.word').textContent = v.w;
+    li.querySelector('.phon').textContent = v.p;
+    li.querySelector('.mean').textContent = v.m;
+    li.querySelector('.ex').textContent = v.e;
+    const btn = li.querySelector('.toggle');
+    btn.addEventListener('click', () => {
+      const open = li.classList.toggle('open');
+      btn.setAttribute('aria-expanded', open);
+      btn.textContent = open ? '收起' : '详情';
+    });
+    list.appendChild(li);
+  });
+
+  /* ── 抽查模式 ── */
+  const QUIZ_SIZE = 20;
+  let quiz = { queue: [], idx: 0, wrong: [], right: 0, revealed: false };
+
+  function startQuiz() {
+    const pool = vocab.slice();
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    quiz = { queue: pool.slice(0, Math.min(QUIZ_SIZE, pool.length)), idx: 0, wrong: [], right: 0, revealed: false };
+    renderQuiz();
+  }
+
+  function renderQuiz() {
+    if (quiz.idx >= quiz.queue.length) return renderResult();
+    const v = quiz.queue[quiz.idx];
+    quizView.innerHTML =
+      '<div class="quiz-progress">第 ' + (quiz.idx + 1) + ' / ' + quiz.queue.length + ' 题</div>' +
+      '<div class="quiz-card">' +
+        '<div class="quiz-word"></div>' +
+        (quiz.revealed
+          ? '<div class="quiz-detail"><div class="phon"></div><div class="mean"></div><div class="ex"></div></div>'
+          : '') +
+        '<div class="quiz-btns">' +
+          (quiz.revealed
+            ? '<button class="q-btn next" id="q-next">继续</button>'
+            : '<button class="q-btn know" id="q-know">✅ 认识</button>' +
+              '<button class="q-btn unknow" id="q-unknow">❌ 不认识</button>') +
+        '</div>' +
+      '</div>';
+    quizView.querySelector('.quiz-word').textContent = v.w;
+    if (quiz.revealed) {
+      quizView.querySelector('.phon').textContent = v.p;
+      quizView.querySelector('.mean').textContent = v.m;
+      quizView.querySelector('.ex').textContent = v.e;
+      quizView.querySelector('#q-next').addEventListener('click', nextQuestion);
+    } else {
+      quizView.querySelector('#q-know').addEventListener('click', () => { quiz.right++; nextQuestion(); });
+      quizView.querySelector('#q-unknow').addEventListener('click', () => {
+        markUnknown(v);
+        quiz.wrong.push(v);
+        quiz.revealed = true;
+        renderQuiz();
+      });
+    }
+  }
+  function nextQuestion() { quiz.idx++; quiz.revealed = false; renderQuiz(); }
+
+  function renderResult() {
+    quizView.innerHTML =
+      '<div class="quiz-card quiz-result">' +
+        '<h2>本轮完成 🎉</h2>' +
+        '<p>认识 ' + quiz.right + ' 个 · 不认识 ' + quiz.wrong.length + ' 个（已记入错题本）</p>' +
+        (quiz.wrong.length
+          ? '<ul id="q-wrong-list">' + quiz.wrong.map(v =>
+              '<li><div class="w"></div><div class="m"></div></li>').join('') + '</ul>'
+          : '') +
+        '<div class="quiz-btns"><button class="q-btn next" id="q-again">再来一轮</button></div>' +
+      '</div>';
+    if (quiz.wrong.length) {
+      const items = quizView.querySelectorAll('#q-wrong-list li');
+      quiz.wrong.forEach((v, i) => {
+        items[i].querySelector('.w').textContent = v.w;
+        items[i].querySelector('.m').textContent = v.m;
+      });
+    }
+    quizView.querySelector('#q-again').addEventListener('click', startQuiz);
+  }
+
+  /* ── 错题本模式 ── */
+  function renderNotebook() {
+    const nb = loadNB();
+    const entries = Object.values(nb).sort((a, b) => b.n - a.n);
+    if (!entries.length) {
+      nbView.innerHTML = '<div class="nb-empty">还没有错题 —— 去「抽查」模式点几个 ❌ 不认识吧</div>';
+      return;
+    }
+    nbView.innerHTML =
+      '<div class="nb-actions"><button class="q-btn unknow" id="nb-clear">清空错题本</button></div>' +
+      '<ul id="nb-list" style="list-style:none;display:flex;flex-direction:column;gap:10px"></ul>';
+    const ul = nbView.querySelector('#nb-list');
+    entries.forEach(e => {
+      const li = document.createElement('li');
+      li.className = 'entry';
+      li.innerHTML =
+        '<div class="entry-main">' +
+          '<span class="word"></span>' +
+          '<span class="nb-count">✗ <span class="n"></span> 次</span>' +
+          '<button class="toggle" aria-expanded="false">详情</button>' +
+        '</div>' +
+        '<div class="detail"><div class="phon"></div><div class="mean"></div><div class="ex"></div></div>';
+      li.querySelector('.word').textContent = e.w;
+      li.querySelector('.n').textContent = e.n;
+      li.querySelector('.phon').textContent = e.p;
+      li.querySelector('.mean').textContent = e.m;
+      li.querySelector('.ex').textContent = e.e;
+      const btn = li.querySelector('.toggle');
+      btn.addEventListener('click', () => {
+        const open = li.classList.toggle('open');
+        btn.setAttribute('aria-expanded', open);
+        btn.textContent = open ? '收起' : '详情';
+      });
+      ul.appendChild(li);
+    });
+    nbView.querySelector('#nb-clear').addEventListener('click', () => {
+      if (confirm('确定清空错题本？此操作不可恢复。')) { localStorage.removeItem(NB_KEY); renderNotebook(); }
+    });
+  }
+
+  /* ── 模式切换 ── */
+  const modeBtns = document.querySelectorAll('.mode-btn');
+  function setMode(mode) {
+    modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    list.hidden = quizView.hidden = nbView.hidden = true;
+    if (mode === 'list') {
+      list.hidden = false;
+      countEl.textContent = '共 ' + vocab.length + ' 条 · 点击右侧按钮查看释义';
+    } else if (mode === 'quiz') {
+      quizView.hidden = false;
+      countEl.textContent = '每轮随机抽 ' + QUIZ_SIZE + ' 个 · 一轮内不重复';
+      startQuiz();
+    } else {
+      nbView.hidden = false;
+      const nb = loadNB();
+      countEl.textContent = '错题本 · 共 ' + Object.keys(nb).length + ' 个词 · 按不认识次数排序';
+      renderNotebook();
+    }
+  }
+  modeBtns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  countEl.textContent = '共 ' + vocab.length + ' 条 · 点击右侧按钮查看释义';
+</script>
+</body>
+</html>
