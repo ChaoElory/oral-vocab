@@ -119,6 +119,10 @@
   .modal label { display: block; font-size: 13px; color: var(--sub); margin: 12px 0 4px; }
   .modal input { width: 100%; font-size: 15px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--ink); }
   .m-btns { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+  .lookup-row { display: flex; gap: 8px; }
+  .lookup-row input { flex: 1; }
+  #lookup-btn { flex-shrink: 0; font-size: 13px; padding: 6px 14px; border-radius: 8px; }
+  #add-p.autofill, #add-m.autofill, #add-e.autofill { outline: 2px solid rgba(53,99,233,.35); }
   /* ── 抽查页脚 + 提示条 ── */
   .quiz-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; max-width: 520px; margin: 12px auto 0; color: var(--sub); font-size: 13px; }
   .quiz-foot .q-btn { font-size: 13px; padding: 6px 14px; border-radius: 999px; }
@@ -149,11 +153,15 @@
 <div class="modal-mask" id="add-mask" hidden>
   <div class="modal">
     <h2>＋ 添加词语</h2>
-    <div class="sub">与积累本相同字段记录 · 已存在的单词不会重复添加 · 保存在本浏览器，周五更新不丢失</div>
-    <label>单词 / 短语 *</label><input id="add-w" type="text" placeholder="如：hang out">
-    <label>音标</label><input id="add-p" type="text" placeholder="如：/hæŋ aʊt/">
-    <label>词性 + 中文</label><input id="add-m" type="text" placeholder="如：短语：闲逛；消磨时间">
-    <label>例句 / 短语</label><input id="add-e" type="text" placeholder="如：We hang out after class. 我们课后闲逛。">
+    <div class="sub">输入单词点「查字典」自动填充音标、释义、例句，确认后写入（存本浏览器，周五更新不丢失）· 已存在的词不会重复添加</div>
+    <label>单词 / 短语 *</label>
+    <div class="lookup-row">
+      <input id="add-w" type="text" placeholder="如：hang out">
+      <button class="q-btn next" id="lookup-btn">查字典</button>
+    </div>
+    <label>音标（自动填充，可改）</label><input id="add-p" type="text" placeholder="点「查字典」或手动填写">
+    <label>词性 + 中文（自动填充，可改）</label><input id="add-m" type="text" placeholder="点「查字典」或手动填写">
+    <label>例句 / 短语（自动填充，可改）</label><input id="add-e" type="text" placeholder="点「查字典」或手动填写">
     <div class="m-btns">
       <button class="q-btn" id="add-cancel">取消</button>
       <button class="q-btn next" id="add-save">保存</button>
@@ -362,19 +370,118 @@
     bindFoot();
   }
 
-  /* ── 添加词语（本地存储，写入前查重） ── */
+  /* ── 添加词语：字典自动填充 + 用户确认后写入（本地存储，写入前查重） ── */
+  const OFFLINE_DICT = {
+    'hang out': { p: '/hæŋ aʊt/', m: '短语：闲逛；消磨时间', e: 'We hang out after class. 我们课后常一起玩。' },
+    'take after': { p: '/teɪk ˈɑːftə(r)/', m: '短语：（外貌或性格）像（长辈）', e: 'She takes after her mother. 她很像她母亲。' },
+    'look forward to': { p: '/lʊk ˈfɔːwəd tu/', m: '短语：期待，盼望', e: "I look forward to your reply. 期待您的回复。" },
+    'get along with': { p: '/ɡet əˈlɒŋ wɪð/', m: '短语：与……相处融洽；进展', e: 'We get along with our neighbors. 我们和邻居相处融洽。' },
+    'in charge of': { p: '/ɪn tʃɑːdʒ əv/', m: '短语：负责，主管', e: "She's in charge of the project. 她负责这个项目。" },
+    'on purpose': { p: '/ɒn ˈpɜːpəs/', m: '短语：故意地', e: 'He broke the cup on purpose. 他故意打碎了杯子。' },
+    'no way': { p: '/nəʊ weɪ/', m: '口语：不可能；没门', e: 'No way! I can not believe it. 不可能！我没法相信。' },
+    'my bad': { p: '/maɪ bæd/', m: '口语：我的错', e: "Oops, my bad. Sorry. 哎，我的错，抱歉。" },
+    'got it': { p: '/ɡɒt ɪt/', m: '口语：明白了；收到了', e: 'Got it. I will handle it. 明白了，我来处理。' },
+    'make sense': { p: '/meɪk sens/', m: '短语：有道理；讲得通', e: 'Your plan makes sense. 你的计划有道理。' },
+    'up to you': { p: '/ˈʌp tə juː/', m: '口语：由你决定', e: "It's up to you. 由你决定。" },
+    'kind of': { p: '/kaɪnd əv/', m: '短语：有点，稍微', e: "I'm kind of tired. 我有点累了。" },
+  };
+  function lookupOffline(w) {
+    const r = OFFLINE_DICT[normW(w)];
+    return r ? Object.assign({ source: 'offline' }, r) : null;
+  }
+  function parseYd(raw, w) {
+    try {
+      const d = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      const word = (d.ec && d.ec.word && d.ec.word[0]) || null;
+      if (!word) return null;
+      const phone = word.usphone || word.ukphone || '';
+      const lines = [];
+      const collect = trs => (trs || []).forEach(tr => {
+        (tr.tr || []).forEach(t => {
+          (t.l && t.l.i ? [].concat(t.l.i) : []).forEach(txt => {
+            const s = String(txt).trim();
+            if (s) lines.push(s);
+          });
+        });
+      });
+      collect(word.trs);
+      const ex = (d.ec && d.ec['lexis-cd'] && d.ec['lexis-cd']['content']) || [];
+      let example = '';
+      const sent = (d.blng_sents_part && d.blng_sents_part['sent-pair']) || [];
+      if (sent.length) {
+        const s0 = sent[0];
+        const en = (s0.en || '').trim(), zh = (s0.cn && s0.cn.trim) ? s0.cn.trim() : String(s0.cn || '').trim();
+        if (en) example = en + (zh ? ' ' + zh : '');
+      }
+      const m = lines.length ? Array.from(new Set(lines)).join('；') : '';
+      if (!m && !phone) return null;
+      return { p: phone ? '/' + phone + '/' : '', m, e: example, source: 'youdao' };
+    } catch (e) { return null; }
+  }
+  const YD_URL = w => 'https://dict.youdao.com/jsonapi?q=' + encodeURIComponent(w) +
+    '&le=en&dicts=%7B%22count%22%3A99%2C%22ec%22%3A%7B%22charset%22%3A%22utf8%22%7D%2C' +
+    '%22phrs%22%3A%7B%7D%2C%22blng_sents_part%22%3A%7B%7D%7D&client=web&keyfrom=webdict';
+  async function lookupWord(w) {
+    const off = lookupOffline(w);
+    if (off) return off;
+    const target = YD_URL(w);
+    const urls = [
+      'https://api.allorigins.win/raw?url=' + encodeURIComponent(target),
+      'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(target),
+      'https://corsproxy.io/?url=' + encodeURIComponent(target),
+    ];
+    for (const u of urls) {
+      try {
+        const ctl = new AbortController();
+        const timer = setTimeout(() => ctl.abort(), 8000);
+        const r = await fetch(u, { signal: ctl.signal });
+        clearTimeout(timer);
+        if (!r.ok) continue;
+        const hit = parseYd(await r.text(), w);
+        if (hit) return hit;
+      } catch (e) { /* 换下一个通道 */ }
+    }
+    return null;
+  }
   const addMask = document.getElementById('add-mask');
   const addFields = ['add-w', 'add-p', 'add-m', 'add-e'].map(id => document.getElementById(id));
-  document.getElementById('btn-add').addEventListener('click', () => {
+  const lookupBtn = document.getElementById('lookup-btn');
+  function clearAutofill() { addFields.slice(1).forEach(f => f.classList.remove('autofill')); }
+  function openAddModal() {
     addFields.forEach(f => f.value = '');
+    clearAutofill();
+    lookupBtn.disabled = false; lookupBtn.textContent = '查字典';
     addMask.hidden = false;
     addFields[0].focus();
-  });
+  }
+  async function doLookup() {
+    const w = addFields[0].value.trim();
+    if (!w) { toast('请先输入单词'); addFields[0].focus(); return; }
+    if (vocab.some(v => normW(v.w) === normW(w))) {
+      toast('「' + w + '」已在积累本中，无需添加'); return;
+    }
+    lookupBtn.disabled = true; lookupBtn.textContent = '查询中…';
+    const r = await lookupWord(w);
+    lookupBtn.disabled = false; lookupBtn.textContent = '查字典';
+    if (!r) {
+      toast('字典未收录该词（或网络不可达），可手动填写三项后确认'); return;
+    }
+    addFields[1].value = r.p; addFields[2].value = r.m; addFields[3].value = r.e;
+    addFields.slice(1).forEach(f => f.classList.toggle('autofill', !!f.value));
+    if (r.source === 'offline') toast('已从内置词库填充');
+  }
+  document.getElementById('btn-add').addEventListener('click', openAddModal);
+  lookupBtn.addEventListener('click', () => { doLookup(); });
+  addFields[0].addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doLookup(); } });
+  addFields.slice(1).forEach(f => f.addEventListener('input', () => f.classList.remove('autofill')));
   document.getElementById('add-cancel').addEventListener('click', () => { addMask.hidden = true; });
   addMask.addEventListener('click', e => { if (e.target === addMask) addMask.hidden = true; });
   document.getElementById('add-save').addEventListener('click', () => {
     const w = addFields[0].value.trim();
     if (!w) { toast('请先填写单词'); addFields[0].focus(); return; }
+    if (!addFields[1].value.trim() && !addFields[2].value.trim() && !addFields[3].value.trim()) {
+      toast('请至少填一项释义（可点「查字典」自动填充）'); return;
+    }
     const nw = normW(w);
     if (vocab.some(v => normW(v.w) === nw)) {
       toast('「' + w + '」已在积累本中，未重复添加');
