@@ -106,12 +106,20 @@
     background: rgba(208,90,90,.12); color: #d05a5a; font-size: 12px;
     padding: 2px 10px; border-radius: 999px; flex-shrink: 0;
   }
-  /* ── 添加词语：按钮与弹窗 ── */
-  .add-btn {
-    border: 1px solid var(--accent); background: transparent; color: var(--accent);
-    font-size: 14px; padding: 6px 18px; border-radius: 999px; cursor: pointer;
+  /* ── 重点本：收藏星标与操作按钮 ── */
+  button.star {
+    border: none; background: transparent; color: var(--sub);
+    font-size: 17px; line-height: 1; padding: 4px 7px; cursor: pointer; flex-shrink: 0;
   }
-  .add-btn:hover { background: rgba(53,99,233,.08); }
+  button.star.on { color: #e6a817; }
+  .st-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+  .st-btn {
+    border: 1px solid var(--border); background: transparent; color: var(--sub);
+    font-size: 12px; padding: 4px 12px; border-radius: 8px; cursor: pointer;
+  }
+  .st-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .st-btn.del:hover { color: #d05a5a; border-color: #d05a5a; }
+  /* ── 编辑弹窗 ── */
   .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 50; }
   .modal { background: var(--card); color: var(--ink); border: 1px solid var(--border); border-radius: 14px; padding: 22px; width: min(430px, 92vw); box-shadow: 0 8px 30px rgba(0,0,0,.25); }
   .modal h2 { font-size: 17px; }
@@ -119,10 +127,6 @@
   .modal label { display: block; font-size: 13px; color: var(--sub); margin: 12px 0 4px; }
   .modal input { width: 100%; font-size: 15px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--ink); }
   .m-btns { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
-  .lookup-row { display: flex; gap: 8px; }
-  .lookup-row input { flex: 1; }
-  #lookup-btn { flex-shrink: 0; font-size: 13px; padding: 6px 14px; border-radius: 8px; }
-  #add-p.autofill, #add-m.autofill, #add-e.autofill { outline: 2px solid rgba(53,99,233,.35); }
   /* ── 抽查页脚 + 提示条 ── */
   .quiz-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; max-width: 520px; margin: 12px auto 0; color: var(--sub); font-size: 13px; }
   .quiz-foot .q-btn { font-size: 13px; padding: 6px 14px; border-radius: 999px; }
@@ -142,29 +146,26 @@
     <button class="mode-btn active" data-mode="list">列表</button>
     <button class="mode-btn" data-mode="quiz">抽查</button>
     <button class="mode-btn" data-mode="notebook">错题本</button>
-    <button class="add-btn" id="btn-add">＋ 添加词语</button>
+    <button class="mode-btn" data-mode="starred">重点本</button>
   </div>
 </header>
 <ul id="word-list"></ul>
 <div id="quiz-view" hidden></div>
 <div id="notebook-view" hidden></div>
+<div id="starred-view" hidden></div>
 
-<!-- 添加词语弹窗 -->
-<div class="modal-mask" id="add-mask" hidden>
+<!-- 重点本编辑弹窗 -->
+<div class="modal-mask" id="edit-mask" hidden>
   <div class="modal">
-    <h2>＋ 添加词语</h2>
-    <div class="sub">输入单词点「查字典」自动填充音标、释义、例句，确认后写入（存本浏览器，周五更新不丢失）· 已存在的词不会重复添加</div>
-    <label>单词 / 短语 *</label>
-    <div class="lookup-row">
-      <input id="add-w" type="text" placeholder="如：hang out">
-      <button class="q-btn next" id="lookup-btn">查字典</button>
-    </div>
-    <label>音标（自动填充，可改）</label><input id="add-p" type="text" placeholder="点「查字典」或手动填写">
-    <label>词性 + 中文（自动填充，可改）</label><input id="add-m" type="text" placeholder="点「查字典」或手动填写">
-    <label>例句 / 短语（自动填充，可改）</label><input id="add-e" type="text" placeholder="点「查字典」或手动填写">
+    <h2>✎ 编辑单词（重点本）</h2>
+    <div class="sub">修改仅作用于重点本中的这条记录，不影响积累本原文</div>
+    <label>单词 / 短语 *</label><input id="ed-w" type="text">
+    <label>音标</label><input id="ed-p" type="text">
+    <label>词性 + 中文</label><input id="ed-m" type="text">
+    <label>例句</label><input id="ed-e" type="text">
     <div class="m-btns">
-      <button class="q-btn" id="add-cancel">取消</button>
-      <button class="q-btn next" id="add-save">保存</button>
+      <button class="q-btn" id="ed-cancel">取消</button>
+      <button class="q-btn next" id="ed-save">保存</button>
     </div>
   </div>
 </div>
@@ -178,16 +179,21 @@
   const list = document.getElementById('word-list');
   const quizView = document.getElementById('quiz-view');
   const nbView = document.getElementById('notebook-view');
+  const starView = document.getElementById('starred-view');
   const countEl = document.getElementById('count');
 
   /* ── 错题本存储（localStorage，按 单词+释义 作键） ── */
   const NB_KEY = 'oral-voc…book';
   const ADD_KEY = 'oral-vocab-added';
+  const STAR_KEY = 'oral-vocab-starred';
   const DRAWN_KEY = 'oral-vocab-drawn';
   function loadNB() { try { return JSON.parse(localStorage.getItem(NB_KEY)) || {}; } catch (e) { return {}; } }
   function saveNB(nb) { localStorage.setItem(NB_KEY, JSON.stringify(nb)); }
   function loadAdded() { try { return JSON.parse(localStorage.getItem(ADD_KEY)) || []; } catch (e) { return []; } }
   function saveAdded(a) { localStorage.setItem(ADD_KEY, JSON.stringify(a)); }
+  function loadStarred() { try { return JSON.parse(localStorage.getItem(STAR_KEY)) || {}; } catch (e) { return {}; } }
+  function saveStarred(s) { localStorage.setItem(STAR_KEY, JSON.stringify(s)); }
+  let starred = loadStarred();
   function loadDrawn() { try { return JSON.parse(localStorage.getItem(DRAWN_KEY)) || []; } catch (e) { return []; } }
   function saveDrawn(d) { localStorage.setItem(DRAWN_KEY, JSON.stringify(d)); }
   function wordKey(v) { return v.w + '||' + v.m; }
@@ -210,8 +216,7 @@
 
   /* ── 列表模式（原有功能） ── */
   function listCountText() {
-    const addedN = loadAdded().length;
-    return '共 ' + vocab.length + ' 条' + (addedN ? '（含本地新增 ' + addedN + ' 条）' : '') + ' · 点击右侧按钮查看释义';
+    return '共 ' + vocab.length + ' 条 · 点「详情」看释义 · 点 ☆ 加入重点本';
   }
   let toastTimer = null;
   function toast(msg) {
@@ -228,6 +233,7 @@
       '<div class="entry-main">' +
         '<span class="num">' + (i + 1) + '</span>' +
         '<span class="word"></span>' +
+        '<button class="star" title="加入 / 移出重点本"></button>' +
         '<button class="toggle" aria-expanded="false">详情</button>' +
       '</div>' +
       '<div class="detail">' +
@@ -239,6 +245,23 @@
     li.querySelector('.phon').textContent = v.p;
     li.querySelector('.mean').textContent = v.m;
     li.querySelector('.ex').textContent = v.e;
+    const star = li.querySelector('.star');
+    const sk = wordKey(v);
+    star.textContent = starred[sk] ? '★' : '☆';
+    star.classList.toggle('on', !!starred[sk]);
+    star.addEventListener('click', () => {
+      if (starred[sk]) {
+        delete starred[sk];
+        star.textContent = '☆'; star.classList.remove('on');
+        toast('已移出重点本：' + v.w);
+      } else {
+        starred[sk] = { w: v.w, p: v.p, m: v.m, e: v.e, t: Date.now() };
+        star.textContent = '★'; star.classList.add('on');
+        toast('已加入重点本：' + v.w);
+      }
+      saveStarred(starred);
+      if (!starView.hidden) renderStarred();
+    });
     const btn = li.querySelector('.toggle');
     btn.addEventListener('click', () => {
       const open = li.classList.toggle('open');
@@ -370,134 +393,92 @@
     bindFoot();
   }
 
-  /* ── 添加词语：字典自动填充 + 用户确认后写入（本地存储，写入前查重） ── */
-  const OFFLINE_DICT = {
-    'hang out': { p: '/hæŋ aʊt/', m: '短语：闲逛；消磨时间', e: 'We hang out after class. 我们课后常一起玩。' },
-    'take after': { p: '/teɪk ˈɑːftə(r)/', m: '短语：（外貌或性格）像（长辈）', e: 'She takes after her mother. 她很像她母亲。' },
-    'look forward to': { p: '/lʊk ˈfɔːwəd tu/', m: '短语：期待，盼望', e: "I look forward to your reply. 期待您的回复。" },
-    'get along with': { p: '/ɡet əˈlɒŋ wɪð/', m: '短语：与……相处融洽；进展', e: 'We get along with our neighbors. 我们和邻居相处融洽。' },
-    'in charge of': { p: '/ɪn tʃɑːdʒ əv/', m: '短语：负责，主管', e: "She's in charge of the project. 她负责这个项目。" },
-    'on purpose': { p: '/ɒn ˈpɜːpəs/', m: '短语：故意地', e: 'He broke the cup on purpose. 他故意打碎了杯子。' },
-    'no way': { p: '/nəʊ weɪ/', m: '口语：不可能；没门', e: 'No way! I can not believe it. 不可能！我没法相信。' },
-    'my bad': { p: '/maɪ bæd/', m: '口语：我的错', e: "Oops, my bad. Sorry. 哎，我的错，抱歉。" },
-    'got it': { p: '/ɡɒt ɪt/', m: '口语：明白了；收到了', e: 'Got it. I will handle it. 明白了，我来处理。' },
-    'make sense': { p: '/meɪk sens/', m: '短语：有道理；讲得通', e: 'Your plan makes sense. 你的计划有道理。' },
-    'up to you': { p: '/ˈʌp tə juː/', m: '口语：由你决定', e: "It's up to you. 由你决定。" },
-    'kind of': { p: '/kaɪnd əv/', m: '短语：有点，稍微', e: "I'm kind of tired. 我有点累了。" },
-  };
-  function lookupOffline(w) {
-    const r = OFFLINE_DICT[normW(w)];
-    return r ? Object.assign({ source: 'offline' }, r) : null;
-  }
-  function parseYd(raw, w) {
-    try {
-      const d = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      const word = (d.ec && d.ec.word && d.ec.word[0]) || null;
-      if (!word) return null;
-      const phone = word.usphone || word.ukphone || '';
-      const lines = [];
-      const collect = trs => (trs || []).forEach(tr => {
-        (tr.tr || []).forEach(t => {
-          (t.l && t.l.i ? [].concat(t.l.i) : []).forEach(txt => {
-            const s = String(txt).trim();
-            if (s) lines.push(s);
-          });
-        });
-      });
-      collect(word.trs);
-      const ex = (d.ec && d.ec['lexis-cd'] && d.ec['lexis-cd']['content']) || [];
-      let example = '';
-      const sent = (d.blng_sents_part && d.blng_sents_part['sent-pair']) || [];
-      if (sent.length) {
-        const s0 = sent[0];
-        const en = (s0.en || '').trim(), zh = (s0.cn && s0.cn.trim) ? s0.cn.trim() : String(s0.cn || '').trim();
-        if (en) example = en + (zh ? ' ' + zh : '');
-      }
-      const m = lines.length ? Array.from(new Set(lines)).join('；') : '';
-      if (!m && !phone) return null;
-      return { p: phone ? '/' + phone + '/' : '', m, e: example, source: 'youdao' };
-    } catch (e) { return null; }
-  }
-  const YD_URL = w => 'https://dict.youdao.com/jsonapi?q=' + encodeURIComponent(w) +
-    '&le=en&dicts=%7B%22count%22%3A99%2C%22ec%22%3A%7B%22charset%22%3A%22utf8%22%7D%2C' +
-    '%22phrs%22%3A%7B%7D%2C%22blng_sents_part%22%3A%7B%7D%7D&client=web&keyfrom=webdict';
-  async function lookupWord(w) {
-    const off = lookupOffline(w);
-    if (off) return off;
-    const target = YD_URL(w);
-    const urls = [
-      'https://api.allorigins.win/raw?url=' + encodeURIComponent(target),
-      'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(target),
-      'https://corsproxy.io/?url=' + encodeURIComponent(target),
-    ];
-    for (const u of urls) {
-      try {
-        const ctl = new AbortController();
-        const timer = setTimeout(() => ctl.abort(), 8000);
-        const r = await fetch(u, { signal: ctl.signal });
-        clearTimeout(timer);
-        if (!r.ok) continue;
-        const hit = parseYd(await r.text(), w);
-        if (hit) return hit;
-      } catch (e) { /* 换下一个通道 */ }
-    }
-    return null;
-  }
-  const addMask = document.getElementById('add-mask');
-  const addFields = ['add-w', 'add-p', 'add-m', 'add-e'].map(id => document.getElementById(id));
-  const lookupBtn = document.getElementById('lookup-btn');
-  function clearAutofill() { addFields.slice(1).forEach(f => f.classList.remove('autofill')); }
-  function openAddModal() {
-    addFields.forEach(f => f.value = '');
-    clearAutofill();
-    lookupBtn.disabled = false; lookupBtn.textContent = '查字典';
-    addMask.hidden = false;
-    addFields[0].focus();
-  }
-  async function doLookup() {
-    const w = addFields[0].value.trim();
-    if (!w) { toast('请先输入单词'); addFields[0].focus(); return; }
-    if (vocab.some(v => normW(v.w) === normW(w))) {
-      toast('「' + w + '」已在积累本中，无需添加'); return;
-    }
-    lookupBtn.disabled = true; lookupBtn.textContent = '查询中…';
-    const r = await lookupWord(w);
-    lookupBtn.disabled = false; lookupBtn.textContent = '查字典';
-    if (!r) {
-      toast('字典未收录该词（或网络不可达），可手动填写三项后确认'); return;
-    }
-    addFields[1].value = r.p; addFields[2].value = r.m; addFields[3].value = r.e;
-    addFields.slice(1).forEach(f => f.classList.toggle('autofill', !!f.value));
-    if (r.source === 'offline') toast('已从内置词库填充');
-  }
-  document.getElementById('btn-add').addEventListener('click', openAddModal);
-  lookupBtn.addEventListener('click', () => { doLookup(); });
-  addFields[0].addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doLookup(); } });
-  addFields.slice(1).forEach(f => f.addEventListener('input', () => f.classList.remove('autofill')));
-  document.getElementById('add-cancel').addEventListener('click', () => { addMask.hidden = true; });
-  addMask.addEventListener('click', e => { if (e.target === addMask) addMask.hidden = true; });
-  document.getElementById('add-save').addEventListener('click', () => {
-    const w = addFields[0].value.trim();
-    if (!w) { toast('请先填写单词'); addFields[0].focus(); return; }
-    if (!addFields[1].value.trim() && !addFields[2].value.trim() && !addFields[3].value.trim()) {
-      toast('请至少填一项释义（可点「查字典」自动填充）'); return;
-    }
-    const nw = normW(w);
-    if (vocab.some(v => normW(v.w) === nw)) {
-      toast('「' + w + '」已在积累本中，未重复添加');
-      addMask.hidden = true;
+  /* ── 错题本模式 ── */
+  /* ── 重点本模式：从列表 ☆ 挑选，可编辑 / 移出 ── */
+  function renderStarred() {
+    const entries = Object.entries(starred).sort((a, b) => (b[1].t || 0) - (a[1].t || 0));
+    if (!entries.length) {
+      starView.innerHTML = '<div class="nb-empty">重点本还是空的 —— 去「列表」页点条目右侧 ☆ 挑选吧</div>';
       return;
     }
-    const entry = { w, p: addFields[1].value.trim(), m: addFields[2].value.trim(), e: addFields[3].value.trim() };
-    saveAdded(loadAdded().concat([entry]));
-    vocab.push(entry);
-    appendEntry(entry, vocab.length - 1);
-    addMask.hidden = true;
-    toast('已添加：' + w + '（存于本浏览器，周五网页更新不会丢失）');
-    if (!list.hidden) countEl.textContent = listCountText();
+    starView.innerHTML =
+      '<ul id="st-list" style="list-style:none;display:flex;flex-direction:column;gap:10px"></ul>';
+    const ul = starView.querySelector('#st-list');
+    entries.forEach(([key, e]) => {
+      const li = document.createElement('li');
+      li.className = 'entry';
+      li.innerHTML =
+        '<div class="entry-main">' +
+          '<span class="word"></span>' +
+          '<span class="st-actions">' +
+            '<button class="st-btn" data-act="edit">✎ 编辑</button>' +
+            '<button class="st-btn del" data-act="del">✕ 移出</button>' +
+            '<button class="toggle" aria-expanded="false">详情</button>' +
+          '</span>' +
+        '</div>' +
+        '<div class="detail"><div class="phon"></div><div class="mean"></div><div class="ex"></div></div>';
+      li.querySelector('.word').textContent = e.w;
+      li.querySelector('.phon').textContent = e.p;
+      li.querySelector('.mean').textContent = e.m;
+      li.querySelector('.ex').textContent = e.e;
+      const btn = li.querySelector('.toggle');
+      btn.addEventListener('click', () => {
+        const open = li.classList.toggle('open');
+        btn.setAttribute('aria-expanded', open);
+        btn.textContent = open ? '收起' : '详情';
+      });
+      li.querySelector('[data-act="edit"]').addEventListener('click', () => openEdit(key, e));
+      li.querySelector('[data-act="del"]').addEventListener('click', () => {
+        if (!confirm('把「' + e.w + '」移出重点本？')) return;
+        delete starred[key];
+        saveStarred(starred);
+        renderStarred();
+        syncStarButtons();
+        toast('已移出重点本：' + e.w);
+      });
+      ul.appendChild(li);
+    });
+  }
+  function syncStarButtons() {
+    const norm = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
+    const keys = new Set(Object.keys(starred).map(k => {
+      const [kw, km] = k.split('||');
+      return norm(kw) + '||' + (km || '');
+    }));
+    list.querySelectorAll('li.entry').forEach(li => {
+      const st = li.querySelector('.star');
+      if (!st) return;
+      const hit = keys.has(norm(li.querySelector('.word').textContent) + '||' + li.querySelector('.mean').textContent);
+      st.textContent = hit ? '★' : '☆';
+      st.classList.toggle('on', hit);
+    });
+  }
+  /* 重点本编辑弹窗 */
+  const editMask = document.getElementById('edit-mask');
+  const edFields = ['ed-w', 'ed-p', 'ed-m', 'ed-e'].map(id => document.getElementById(id));
+  let editingKey = null;
+  function openEdit(key, e) {
+    editingKey = key;
+    edFields[0].value = e.w || ''; edFields[1].value = e.p || '';
+    edFields[2].value = e.m || ''; edFields[3].value = e.e || '';
+    editMask.hidden = false;
+    edFields[0].focus();
+  }
+  document.getElementById('ed-cancel').addEventListener('click', () => { editMask.hidden = true; });
+  editMask.addEventListener('click', ev => { if (ev.target === editMask) editMask.hidden = true; });
+  document.getElementById('ed-save').addEventListener('click', () => {
+    const w = edFields[0].value.trim();
+    if (!w) { toast('单词不能为空'); edFields[0].focus(); return; }
+    if (!editingKey || !starred[editingKey]) { editMask.hidden = true; return; }
+    starred[editingKey] = Object.assign({}, starred[editingKey], {
+      w, p: edFields[1].value.trim(), m: edFields[2].value.trim(), e: edFields[3].value.trim()
+    });
+    saveStarred(starred);
+    editMask.hidden = true;
+    renderStarred();
+    toast('已保存修改：' + w);
   });
 
-  /* ── 错题本模式 ── */
   function renderNotebook() {
     const nb = loadNB();
     const entries = Object.values(nb).sort((a, b) => b.n - a.n);
@@ -541,10 +522,16 @@
   const modeBtns = document.querySelectorAll('.mode-btn');
   function setMode(mode) {
     modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
-    list.hidden = quizView.hidden = nbView.hidden = true;
+    list.hidden = quizView.hidden = nbView.hidden = starView.hidden = true;
     if (mode === 'list') {
       list.hidden = false;
       countEl.textContent = listCountText();
+      syncStarButtons();
+    } else if (mode === 'starred') {
+      starView.hidden = false;
+      const n = Object.keys(starred).length;
+      countEl.textContent = '重点本 · 共 ' + n + ' 个词' + (n ? ' · 按加入时间排序' : '');
+      renderStarred();
     } else if (mode === 'quiz') {
       quizView.hidden = false;
       countEl.textContent = '每轮 = 新词 10 + 最新错词 10 · 新词同一周期内严格不重复';
