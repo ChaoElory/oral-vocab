@@ -106,6 +106,15 @@
     background: rgba(208,90,90,.12); color: #d05a5a; font-size: 12px;
     padding: 2px 10px; border-radius: 999px; flex-shrink: 0;
   }
+  /* ── 列表检索 ── */
+  .search-bar { display: flex; justify-content: center; margin-top: 14px; }
+  #search-input {
+    width: min(440px, 92vw); font-size: 14px; padding: 8px 16px;
+    border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); outline: none;
+  }
+  #search-input:focus { border-color: var(--accent); }
+  .no-result { text-align: center; color: var(--sub); padding: 32px 0; font-size: 15px; }
   /* ── 重点本：收藏星标与操作按钮 ── */
   button.star {
     border: none; background: transparent; color: var(--sub);
@@ -148,6 +157,7 @@
     <button class="mode-btn" data-mode="notebook">错题本</button>
     <button class="mode-btn" data-mode="starred">重点本</button>
   </div>
+  <div class="search-bar" id="search-bar"><input id="search-input" type="search" placeholder="🔍 搜索单词 / 中文释义…" autocomplete="off"></div>
 </header>
 <ul id="word-list"></ul>
 <div id="quiz-view" hidden></div>
@@ -214,9 +224,10 @@
     saveNB(nb);
   }
 
-  /* ── 列表模式（原有功能） ── */
-  function listCountText() {
-    return '共 ' + vocab.length + ' 条 · 点「详情」看释义 · 点 ☆ 加入重点本';
+  /* ── 列表模式（倒序呈现 + 检索） ── */
+  function listCountText(n, filtering) {
+    if (filtering) return '匹配 ' + n + ' / 共 ' + vocab.length + ' 条 · 清空搜索框查看全部';
+    return '共 ' + vocab.length + ' 条（最新在前） · 点「详情」看释义 · 点 ☆ 加入重点本';
   }
   let toastTimer = null;
   function toast(msg) {
@@ -270,7 +281,27 @@
     });
     list.appendChild(li);
   }
-  vocab.forEach(appendEntry);
+  /* 倒序渲染 + 关键词检索（英文单词或中文释义，大小写不敏感） */
+  function renderList(q) {
+    const query = normW(q || '');
+    list.innerHTML = '';
+    let shown = 0;
+    for (let i = vocab.length - 1; i >= 0; i--) {   // 最新录入在前，序号保留原位置
+      const v = vocab[i];
+      if (query && !(normW(v.w).includes(query) || String(v.m).toLowerCase().includes(query))) continue;
+      appendEntry(v, i); shown++;
+    }
+    if (!shown) {
+      const div = document.createElement('div');
+      div.className = 'no-result';
+      div.textContent = '未找到与「' + (q || '').trim() + '」相关的单词';
+      list.appendChild(div);
+    }
+    countEl.textContent = listCountText(shown, !!query);
+  }
+  const searchInput = document.getElementById('search-input');
+  searchInput.addEventListener('input', () => { if (!list.hidden) renderList(searchInput.value); });
+  renderList('');
 
   /* ── 抽查模式：每轮 = 新词10（表尾最新、同周期不重复） + 最新错词10（可重复温故） ── */
   const NEW_SIZE = 10, WRONG_SIZE = 10, QUIZ_SIZE = 20;
@@ -523,9 +554,10 @@
   function setMode(mode) {
     modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
     list.hidden = quizView.hidden = nbView.hidden = starView.hidden = true;
+    document.getElementById('search-bar').hidden = (mode !== 'list');
     if (mode === 'list') {
       list.hidden = false;
-      countEl.textContent = listCountText();
+      renderList(searchInput.value);
       syncStarButtons();
     } else if (mode === 'starred') {
       starView.hidden = false;
