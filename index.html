@@ -167,8 +167,8 @@
 <!-- 重点本编辑弹窗 -->
 <div class="modal-mask" id="edit-mask" hidden>
   <div class="modal">
-    <h2>✎ 编辑单词（重点本）</h2>
-    <div class="sub">修改仅作用于重点本中的这条记录，不影响积累本原文</div>
+    <h2 id="ed-title">✎ 编辑单词</h2>
+    <div class="sub" id="ed-sub"></div>
     <label>单词 / 短语 *</label><input id="ed-w" type="text">
     <label>音标</label><input id="ed-p" type="text">
     <label>词性 + 中文</label><input id="ed-m" type="text">
@@ -197,6 +197,7 @@
   const ADD_KEY = 'oral-vocab-added';
   const STAR_KEY = 'oral-vocab-starred';
   const DRAWN_KEY = 'oral-vocab-drawn';
+  const DEL_KEY = 'oral-vocab-deleted';
   function loadNB() { try { return JSON.parse(localStorage.getItem(NB_KEY)) || {}; } catch (e) { return {}; } }
   function saveNB(nb) { localStorage.setItem(NB_KEY, JSON.stringify(nb)); }
   function loadAdded() { try { return JSON.parse(localStorage.getItem(ADD_KEY)) || []; } catch (e) { return []; } }
@@ -206,8 +207,54 @@
   let starred = loadStarred();
   function loadDrawn() { try { return JSON.parse(localStorage.getItem(DRAWN_KEY)) || []; } catch (e) { return []; } }
   function saveDrawn(d) { localStorage.setItem(DRAWN_KEY, JSON.stringify(d)); }
+  function loadDeleted() { try { return JSON.parse(localStorage.getItem(DEL_KEY)) || []; } catch (e) { return []; } }
+  function saveDeleted(d) { localStorage.setItem(DEL_KEY, JSON.stringify(d)); }
+  const deletedKeys = new Set(loadDeleted());
   function wordKey(v) { return v.w + '||' + v.m; }
   function normW(w) { return String(w).toLowerCase().replace(/\s+/g, ' ').trim(); }
+  /* ── 删除 / 覆盖编辑：积累本词条统一管理 ── */
+  function addDeletedKey(k) { deletedKeys.add(k); saveDeleted([...deletedKeys]); }
+  function removeDeletedKey(k) { deletedKeys.delete(k); saveDeleted([...deletedKeys]); }
+  function loadOverrides() { try { return JSON.parse(localStorage.getItem('oral-vocab-overrides')) || {}; } catch (e) { return {}; } }
+  function saveOverrides(o) { localStorage.setItem('oral-vocab-overrides', JSON.stringify(o)); }
+  let overrides = loadOverrides();   // 键 = 原始 wordKey，值 = {w,p,m,e} 覆盖值
+  function displayV(v) {             // 词条显示值（含覆盖）
+    const o = overrides[wordKey(v)];
+    return o ? Object.assign({}, v, o) : v;
+  }
+  function isDeleted(k) { return deletedKeys.has(k); }
+  function deleteEntry(v) {          // 删除：新增词直接移出 added；内嵌词记入 deleted
+    const k = wordKey(v);
+    const added = loadAdded();
+    const idx = added.findIndex(a => normW(a.w) === normW(v.w));
+    if (idx >= 0) { added.splice(idx, 1); saveAdded(added); }
+    const vi = vocab.indexOf(v);
+    if (vi >= 0) vocab.splice(vi, 1);
+    addDeletedKey(k);
+    removeRelated(k);
+  }
+  function removeRelated(k) {        // 联动清理错题本 / 重点本 / 抽查记录
+    const nb = loadNB(); if (nb[k]) { delete nb[k]; saveNB(nb); }
+    if (starred[k]) { delete starred[k]; saveStarred(starred); }
+    const rec = loadDrawn(); const i = rec.indexOf(k);
+    if (i >= 0) { rec.splice(i, 1); saveDrawn(rec); }
+  }
+  function saveEntryEdit(origKey, origV, neu) {   // 编辑保存：写覆盖 + 键变化时同步各本
+    overrides[origKey] = neu; saveOverrides(overrides);
+    const newKey = neu.w + '||' + neu.m;
+    if (newKey !== origKey) {
+      removeRelated(origKey);
+      const nb = loadNB();
+      if (nb[origKey]) { const e = nb[origKey]; delete nb[origKey];
+        nb[newKey] = { w: neu.w, p: neu.p, m: neu.m, e: neu.e, n: e.n, t: Date.now() }; saveNB(nb); }
+      if (starred[origKey]) { const e = starred[origKey]; delete starred[origKey];
+        starred[newKey] = { w: neu.w, p: neu.p, m: neu.m, e: neu.e, t: e.t }; saveStarred(starred); }
+      const added = loadAdded();
+      const idx = added.findIndex(a => wordKey(a) === origKey);
+      if (idx >= 0) { added[idx] = Object.assign({}, added[idx], neu); saveAdded(added); }
+      if (isDeleted(origKey)) { removeDeletedKey(origKey); addDeletedKey(newKey); }
+    }
+  }
   function mergeAdded() {
     const kept = [], seen = new Set(vocab.map(v => normW(v.w)));
     const base = loadAdded();
@@ -218,6 +265,8 @@
     if (kept.length !== base.length) saveAdded(kept);
   }
   mergeAdded();
+  /* 已删除 / 已覆盖的词在加载后统一处理：deleted 从 vocab 摘除（仅本次会话），overrides 应用到 vocab */
+  vocab = vocab.filter(v => !isDeleted(wordKey(v)));
   function markUnknown(v) {
     const nb = loadNB(), k = wordKey(v);
     nb[k] = { w: v.w, p: v.p, m: v.m, e: v.e, n: (nb[k] ? nb[k].n : 0) + 1, t: Date.now() };
@@ -238,12 +287,17 @@
     toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
   }
   function appendEntry(v, i) {
+    const dv = displayV(v);          // 显示时应用覆盖编辑
     const li = document.createElement('li');
     li.className = 'entry';
     li.innerHTML =
       '<div class="entry-main">' +
         '<span class="num">' + (i + 1) + '</span>' +
         '<span class="word"></span>' +
+        '<span class="st-actions">' +
+          '<button class="st-btn" data-act="edit" title="编辑单词信息">✎</button>' +
+          '<button class="st-btn del" data-act="del" title="从积累本删除">✕</button>' +
+        '</span>' +
         '<button class="star" title="加入 / 移出重点本"></button>' +
         '<button class="toggle" aria-expanded="false">详情</button>' +
       '</div>' +
@@ -252,10 +306,10 @@
         '<div class="mean"></div>' +
         '<div class="ex"></div>' +
       '</div>';
-    li.querySelector('.word').textContent = v.w;
-    li.querySelector('.phon').textContent = v.p;
-    li.querySelector('.mean').textContent = v.m;
-    li.querySelector('.ex').textContent = v.e;
+    li.querySelector('.word').textContent = dv.w;
+    li.querySelector('.phon').textContent = dv.p;
+    li.querySelector('.mean').textContent = dv.m;
+    li.querySelector('.ex').textContent = dv.e;
     const star = li.querySelector('.star');
     const sk = wordKey(v);
     star.textContent = starred[sk] ? '★' : '☆';
@@ -278,6 +332,13 @@
       const open = li.classList.toggle('open');
       btn.setAttribute('aria-expanded', open);
       btn.textContent = open ? '收起' : '详情';
+    });
+    li.querySelector('[data-act="edit"]').addEventListener('click', () => openListEdit(v));
+    li.querySelector('[data-act="del"]').addEventListener('click', () => {
+      if (!confirm('把「' + dv.w + '」从积累本删除？（错题本、重点本中的对应记录也会一并移除）')) return;
+      deleteEntry(v);
+      renderList(searchInput.value);
+      toast('已删除：' + dv.w);
     });
     list.appendChild(li);
   }
@@ -366,7 +427,8 @@
 
   function renderQuiz() {
     if (quiz.idx >= quiz.queue.length) return renderResult();
-    const v = quiz.queue[quiz.idx];
+    const raw = quiz.queue[quiz.idx];
+    const v = displayV(raw);
     quizView.innerHTML =
       '<div class="quiz-progress">第 ' + (quiz.idx + 1) + ' / ' + quiz.queue.length + ' 题</div>' +
       '<div class="quiz-card">' +
@@ -487,11 +549,26 @@
   /* 重点本编辑弹窗 */
   const editMask = document.getElementById('edit-mask');
   const edFields = ['ed-w', 'ed-p', 'ed-m', 'ed-e'].map(id => document.getElementById(id));
-  let editingKey = null;
+  const edTitle = document.getElementById('ed-title');
+  const edSub = document.getElementById('ed-sub');
+  let editingKey = null, editingMode = 'starred', editingV = null;
   function openEdit(key, e) {
-    editingKey = key;
+    editingMode = 'starred'; editingKey = key; editingV = null;
+    edTitle.textContent = '✎ 编辑单词（重点本）';
+    edSub.textContent = '修改仅作用于重点本中的这条记录，不影响积累本原文';
     edFields[0].value = e.w || ''; edFields[1].value = e.p || '';
     edFields[2].value = e.m || ''; edFields[3].value = e.e || '';
+    editMask.hidden = false;
+    edFields[0].focus();
+  }
+  /* 积累本编辑：保存写入 localStorage 覆盖层，列表与抽查均显示新值 */
+  function openListEdit(v) {
+    const dv = displayV(v);
+    editingMode = 'list'; editingKey = wordKey(v); editingV = v;
+    edTitle.textContent = '✎ 编辑单词（积累本）';
+    edSub.textContent = '修改会同步到列表显示与抽查模式，原数据以覆盖形式保存在本机浏览器中';
+    edFields[0].value = dv.w || ''; edFields[1].value = dv.p || '';
+    edFields[2].value = dv.m || ''; edFields[3].value = dv.e || '';
     editMask.hidden = false;
     edFields[0].focus();
   }
@@ -500,6 +577,15 @@
   document.getElementById('ed-save').addEventListener('click', () => {
     const w = edFields[0].value.trim();
     if (!w) { toast('单词不能为空'); edFields[0].focus(); return; }
+    if (editingMode === 'list') {
+      if (!editingV || !vocab.includes(editingV)) { editMask.hidden = true; return; }
+      const neu = { w, p: edFields[1].value.trim(), m: edFields[2].value.trim(), e: edFields[3].value.trim() };
+      saveEntryEdit(editingKey, editingV, neu);
+      editMask.hidden = true;
+      renderList(searchInput.value);
+      toast('已保存修改：' + w);
+      return;
+    }
     if (!editingKey || !starred[editingKey]) { editMask.hidden = true; return; }
     starred[editingKey] = Object.assign({}, starred[editingKey], {
       w, p: edFields[1].value.trim(), m: edFields[2].value.trim(), e: edFields[3].value.trim()
