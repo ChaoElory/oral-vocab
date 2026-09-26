@@ -38,11 +38,16 @@
     box-shadow: 0 1px 3px rgba(0,0,0,.04);
   }
   .entry-main {
-    display: flex; align-items: center; gap: 12px;
-    padding: 13px 16px;
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 13px 16px 10px;
   }
+  .word-row { display: flex; align-items: baseline; gap: 12px; }
   .num { color: var(--sub); font-size: 12px; min-width: 26px; font-variant-numeric: tabular-nums; }
-  .word { font-size: 17px; font-weight: 600; flex: 1; word-break: break-word; }
+  .word { font-size: 17px; font-weight: 600; flex: 1; word-break: break-word; overflow-wrap: anywhere; }
+  .act-row {
+    display: flex; align-items: center; gap: 10px;
+    padding-left: 38px;
+  }
   button.toggle {
     border: 1px solid var(--border); background: transparent; color: var(--accent);
     font-size: 13px; padding: 5px 14px; border-radius: 999px; cursor: pointer;
@@ -292,14 +297,16 @@
     li.className = 'entry';
     li.innerHTML =
       '<div class="entry-main">' +
-        '<span class="num">' + (i + 1) + '</span>' +
-        '<span class="word"></span>' +
-        '<span class="st-actions">' +
-          '<button class="st-btn" data-act="edit" title="编辑单词信息">✎</button>' +
-          '<button class="st-btn del" data-act="del" title="从积累本删除">✕</button>' +
-        '</span>' +
-        '<button class="star" title="加入 / 移出重点本"></button>' +
-        '<button class="toggle" aria-expanded="false">详情</button>' +
+        '<div class="word-row">' +
+          '<span class="num">' + (i + 1) + '</span>' +
+          '<span class="word"></span>' +
+        '</div>' +
+        '<div class="act-row">' +
+          '<button class="st-btn" data-act="edit" title="编辑单词信息">✎ 编辑</button>' +
+          '<button class="st-btn del" data-act="del" title="从积累本删除">✕ 删除</button>' +
+          '<button class="star" title="加入 / 移出重点本"></button>' +
+          '<button class="toggle" aria-expanded="false">详情</button>' +
+        '</div>' +
       '</div>' +
       '<div class="detail">' +
         '<div class="phon"></div>' +
@@ -502,12 +509,12 @@
       li.className = 'entry';
       li.innerHTML =
         '<div class="entry-main">' +
-          '<span class="word"></span>' +
-          '<span class="st-actions">' +
+          '<div class="word-row"><span class="word"></span></div>' +
+          '<div class="act-row">' +
             '<button class="st-btn" data-act="edit">✎ 编辑</button>' +
             '<button class="st-btn del" data-act="del">✕ 移出</button>' +
             '<button class="toggle" aria-expanded="false">详情</button>' +
-          '</span>' +
+          '</div>' +
         '</div>' +
         '<div class="detail"><div class="phon"></div><div class="mean"></div><div class="ex"></div></div>';
       li.querySelector('.word').textContent = e.w;
@@ -612,9 +619,13 @@
       li.className = 'entry';
       li.innerHTML =
         '<div class="entry-main">' +
-          '<span class="word"></span>' +
-          '<span class="nb-count">✗ <span class="n"></span> 次</span>' +
-          '<button class="toggle" aria-expanded="false">详情</button>' +
+          '<div class="word-row">' +
+            '<span class="word"></span>' +
+            '<span class="nb-count">✗ <span class="n"></span> 次</span>' +
+          '</div>' +
+          '<div class="act-row">' +
+            '<button class="toggle" aria-expanded="false">详情</button>' +
+          '</div>' +
         '</div>' +
         '<div class="detail"><div class="phon"></div><div class="mean"></div><div class="ex"></div></div>';
       li.querySelector('.word').textContent = e.w;
